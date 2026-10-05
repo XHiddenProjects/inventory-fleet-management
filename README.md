@@ -74,7 +74,7 @@ This folder is already a git repo (`git log` to confirm). To push it:
 # on github.com, create a new empty repo first (no README/license/.gitignore,
 # to avoid merge conflicts with what's already committed here), then:
 cd inventory-fleet-management
-git remote add origin git@github.com:XHiddenProjects/inventory-fleet-management.git
+git remote add origin git@github.com:<you>/inventory-fleet-management.git
 git branch -M main
 git push -u origin main
 ```
@@ -84,8 +84,8 @@ at a GitHub release asset instead of an internal file server — e.g. after
 cutting a GitHub Release and attaching this tarball:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/XHiddenProjects/inventory-fleet-management/main/scripts/bootstrap.sh \
-  | sudo bash -s -- --url https://github.com/XHiddenProjects/inventory-fleet-management/releases/download/v1.0.0/inventory-fleet-management.tar.gz
+curl -fsSL https://raw.githubusercontent.com/<you>/inventory-fleet-management/main/scripts/bootstrap.sh \
+  | sudo bash -s -- --url https://github.com/<you>/inventory-fleet-management/releases/download/v1.0.0/inventory-fleet-management.tar.gz
 ```
 
 Note this is the one case in this project that *does* touch the public
@@ -129,11 +129,36 @@ for details.
 | `scripts/bootstrap.sh` | **No**, as long as `--url` points at a host on your own network |
 | **Building** `inventory-agent.exe` in the first place (`agent-windows-exe-kit/build.ps1`) | **Yes, once** — PyInstaller + psutil are pulled from PyPI on the build machine only, never on the install targets |
 
-The vendored wheels in this release cover Linux x86_64/aarch64, macOS
-x86_64/arm64, and Windows x86_64 on common Python 3.9–3.12 builds (psutil
-ships `abi3` wheels, so one file covers that whole range per platform). If
-a target machine doesn't match any vendored wheel, re-run `pip download
---no-deps -r <requirements.txt> -d vendor/wheels` on a machine matching
-that exact OS/arch/Python version — doesn't need to be the offline
-target itself, just the same platform — and drop the resulting wheel
-into the matching `vendor/wheels` folder before installing.
+Everything except `pydantic_core` is a pure-Python (`py3-none-any`) wheel,
+so it's version/platform-agnostic. `pydantic_core` is compiled and is the
+one package that has to match the target's exact Python minor version +
+OS/arch:
+
+- Server (`inventory-server/server/vendor/wheels`): `pydantic_core` for
+  Python 3.9–3.13 on Linux x86_64, and Python 3.12 on Linux aarch64.
+- Agent (`inventory-server/agent/vendor/wheels`): `psutil` ships `abi3`
+  wheels, so one file per platform covers Python 3.6+ — Linux x86_64/aarch64,
+  macOS x86_64/arm64, and Windows x86_64 are all included.
+
+If a target server runs a Python/arch combo not listed above (e.g. 3.14,
+or aarch64 on a different Python version), `pip --no-index` will fail with
+"could not find a version that satisfies ... pydantic-core". Fix it by
+running this on **any machine matching that target's OS/arch/Python
+version** (it doesn't need to be the offline target itself, and needs
+internet only for this one step):
+
+```bash
+pip download --no-deps --only-binary=:all: pydantic_core==<version from requirements/installed> \
+  -d inventory-server/server/vendor/wheels
+```
+
+or cross-download without needing a matching machine at all, from anywhere pip can reach PyPI:
+
+```bash
+pip download --no-deps --only-binary=:all: \
+  --platform manylinux2014_x86_64 --python-version 3.14 \
+  pydantic_core==<version> -d inventory-server/server/vendor/wheels
+```
+
+Then drop the resulting `.whl` into that folder and re-run the install —
+no other vendored packages need touching.
