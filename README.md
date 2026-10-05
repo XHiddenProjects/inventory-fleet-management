@@ -74,7 +74,7 @@ This folder is already a git repo (`git log` to confirm). To push it:
 # on github.com, create a new empty repo first (no README/license/.gitignore,
 # to avoid merge conflicts with what's already committed here), then:
 cd inventory-fleet-management
-git remote add origin git@github.com:<you>/inventory-fleet-management.git
+git remote add origin git@github.com:XHiddenProjects/inventory-fleet-management.git
 git branch -M main
 git push -u origin main
 ```
@@ -84,8 +84,8 @@ at a GitHub release asset instead of an internal file server — e.g. after
 cutting a GitHub Release and attaching this tarball:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<you>/inventory-fleet-management/main/scripts/bootstrap.sh \
-  | sudo bash -s -- --url https://github.com/<you>/inventory-fleet-management/releases/download/v1.0.0/inventory-fleet-management.tar.gz
+curl -fsSL https://raw.githubusercontent.com/XHiddenProjects/inventory-fleet-management/main/scripts/bootstrap.sh \
+  | sudo bash -s -- --url https://github.com/XHiddenProjects/inventory-fleet-management/releases/download/v1.0.0/inventory-fleet-management.tar.gz
 ```
 
 Note this is the one case in this project that *does* touch the public
