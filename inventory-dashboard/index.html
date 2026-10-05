@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Inventory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function () {
+      function resolve() {
+        var manual = null;
+        try { manual = localStorage.getItem("inv:theme"); } catch (e) {}
+        if (manual === "light" || manual === "dark") return manual;
+        var pref = "auto";
+        try { pref = localStorage.getItem("shell:style") || "auto"; } catch (e) {}
+        if (pref === "light" || pref === "dark") return pref;
+        return (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", resolve());
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="sadc-app">
+
+    <div class="sadc-header">
+      <div>
+        <p class="sadc-title">Inventory &amp; Fleet Management</p>
+        <p class="sadc-subtitle" id="inv-server-line">Checking server&hellip;</p>
+      </div>
+      <div class="sadc-service-bar">
+        <span id="inv-server-badge" class="badge neutral">checking&hellip;</span>
+        <button id="inv-theme-toggle" class="small" title="Cycle this page's theme: Auto / Light / Dark">Theme: Auto</button>
+        <button id="inv-refresh-all" class="small">Refresh</button>
+      </div>
+    </div>
+
+    <div class="sadc-tabs" id="inv-tabs">
+      <div class="sadc-tab active" data-panel="dashboard">Dashboard</div>
+      <div class="sadc-tab" data-panel="hosts">Hosts</div>
+      <div class="sadc-tab" data-panel="deploy">Deploy</div>
+      <div class="sadc-tab" data-panel="enrollment">Enrollment</div>
+      <div class="sadc-tab" data-panel="settings">Settings</div>
+    </div>
+
+    <div class="sadc-body">
+      <div id="inv-alert-area"></div>
+
+      <!-- DASHBOARD -->
+      <div class="sadc-panel active" id="panel-dashboard">
+        <div class="metric-grid" id="dash-metrics">
+          <div class="metric-card"><div class="metric-value">&hellip;</div><div class="metric-label">Loading</div></div>
+        </div>
+        <div class="chart-row">
+          <div class="card chart-card">
+            <div class="card-header">Agents by operating system</div>
+            <div class="card-body" id="dash-os-chart"><span class="spinner"></span></div>
+          </div>
+          <div class="card chart-card">
+            <div class="card-header">Online vs offline</div>
+            <div class="card-body" id="dash-online-chart"><span class="spinner"></span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Recently seen hosts</div>
+          <div class="card-body" id="dash-recent-hosts"><span class="spinner"></span></div>
+        </div>
+      </div>
+
+      <!-- HOSTS -->
+      <div class="sadc-panel" id="panel-hosts">
+        <div class="sadc-toolbar">
+          <div class="left">
+            <input type="text" id="hosts-search" placeholder="Filter hosts&hellip;" style="width:240px">
+          </div>
+          <div class="right">
+            <button id="hosts-refresh" class="small">Refresh</button>
+          </div>
+        </div>
+        <div id="hosts-table-wrap"><span class="spinner"></span> Loading&hellip;</div>
+      </div>
+
+      <!-- HOST DETAIL (shown over the Hosts panel) -->
+      <div class="sadc-panel" id="panel-host-detail">
+        <div class="host-header">
+          <div>
+            <button id="host-detail-back" class="small">&larr; Back to hosts</button>
+            <h2 id="host-detail-title" style="margin-top:8px">&nbsp;</h2>
+            <p class="sadc-subtitle" id="host-detail-subtitle"></p>
+          </div>
+          <div class="right" style="display:flex;gap:8px">
+            <button id="host-detail-refresh" class="small">Refresh</button>
+            <button id="host-detail-revoke" class="small danger">Revoke</button>
+            <button id="host-detail-delete" class="small danger">Delete</button>
+          </div>
+        </div>
+        <div class="subtabs" id="host-subtabs">
+          <div class="subtab active" data-sub="system">System</div>
+          <div class="subtab" data-sub="software">Software</div>
+          <div class="subtab" data-sub="processes">Processes</div>
+          <div class="subtab" data-sub="network">Network</div>
+          <div class="subtab" data-sub="identity">Identity</div>
+          <div class="subtab" data-sub="services">Services</div>
+        </div>
+        <div class="subpanel active" id="sub-system"></div>
+        <div class="subpanel" id="sub-software"></div>
+        <div class="subpanel" id="sub-processes"></div>
+        <div class="subpanel" id="sub-network"></div>
+        <div class="subpanel" id="sub-identity"></div>
+        <div class="subpanel" id="sub-services"></div>
+      </div>
+
+      <!-- DEPLOY -->
+      <div class="sadc-panel" id="panel-deploy">
+        <div class="card">
+          <div class="card-header">Run a script on your fleet</div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="form-row"><label>Job name</label><input type="text" id="deploy-name" placeholder="e.g. Clear temp files"></div>
+              <div class="form-row"><label>Interpreter</label>
+                <select id="deploy-interpreter">
+                  <option value="auto">Auto (bash on Linux/macOS, PowerShell on Windows)</option>
+                  <option value="bash">bash</option>
+                  <option value="powershell">PowerShell</option>
+                  <option value="python">Python</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label for="deploy-file">Upload a script</label>
+              <input type="file" id="deploy-file" accept=".sh,.bash,.ps1,.py,.txt">
+              <div class="form-hint">UTF-8 text files only, up to 256 KiB. Supported extensions: .sh, .bash, .ps1, .py, .txt.</div>
+            </div>
+            <div class="form-row">
+              <label>Block builder</label>
+              <div class="block-toolbar">
+                <select id="deploy-block-type" aria-label="Block type">
+                  <option value="print">Print text</option>
+                  <option value="wait">Wait</option>
+                  <option value="code">Command or code</option>
+                  <option value="directory">Create directory</option>
+                  <option value="download">Download file</option>
+                  <option value="writeFile">Write uploaded file</option>
+                  <option value="environment">Set environment variable</option>
+                  <option value="service">Service action</option>
+                </select>
+                <button id="deploy-add-block" type="button">Add node</button>
+              </div>
+              <p class="form-hint">Nodes run in order. Use up to 50 nodes. Inputs can include text, numbers, URLs, action menus, and embedded files. Choose Bash, PowerShell, or Python; Auto cannot generate blocks for mixed operating systems. Adding or moving a node replaces the script below.</p>
+              <div id="deploy-blocks" class="block-list"><div class="empty-state">No nodes added.</div></div>
+            </div>
+            <div class="form-row">
+              <label for="deploy-script">Generated or uploaded script</label>
+              <textarea id="deploy-script" rows="10" spellcheck="false" placeholder="#!/bin/bash&#10;echo hello from $(hostname)"></textarea>
+            </div>
+            <div class="form-row">
+              <label>Targets</label>
+              <div class="checkbox-row"><input type="checkbox" id="deploy-target-all" checked><label for="deploy-target-all">All enrolled agents</label></div>
+              <div id="deploy-target-list" style="display:none"></div>
+            </div>
+            <div class="form-row" style="max-width:220px"><label for="deploy-timeout">Timeout (seconds)</label><input type="number" id="deploy-timeout" value="300" min="5" max="3600"></div>
+            <div class="alert info">Deployment limits: script up to 256 KiB, embedded files up to 48 KiB each, timeout 5 to 3,600 seconds, maximum 1,000 targets. Scripts run with the agent service account's permissions and are not sandboxed. Review scripts before running them.</div>
+            <button id="deploy-run" class="primary">Run job</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span>Job history</span><button id="deploy-jobs-refresh" class="small">Refresh</button></div>
+          <div class="card-body" id="deploy-jobs-wrap"><span class="spinner"></span> Loading&hellip;</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Silent install (admin-approved files)</div>
+          <div class="card-body">
+            <p class="form-hint">Upload an installer or executable once here, then push it to agents as a job. It runs with no UI, in the background, using each platform's standard unattended-install switches. Only upload files you trust - everything here runs with the agent service account's permissions.</p>
+            <div class="form-grid">
+              <div class="form-row"><label for="file-label">Label</label><input type="text" id="file-label" placeholder="e.g. Company VPN client 4.2"></div>
+              <div class="form-row"><label for="file-platform">Platform</label>
+                <select id="file-platform">
+                  <option value="any">Any</option>
+                  <option value="windows">Windows</option>
+                  <option value="macos">macOS</option>
+                  <option value="linux">Linux</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row"><label for="file-silent-args">Default silent install args (optional)</label>
+              <input type="text" id="file-silent-args" placeholder="e.g. /quiet /norestart, or -y">
+              <div class="form-hint">Defaults used if a job doesn't override them. Windows .exe defaults to /S, .msi to /quiet /norestart if left blank; .deb/.rpm/.pkg/.sh run with no extra args unless you set them.</div>
+            </div>
+            <div class="form-row">
+              <label for="file-upload">File</label>
+              <input type="file" id="file-upload" accept=".exe,.msi,.msp,.pkg,.dmg,.deb,.rpm,.run,.sh">
+              <div class="form-hint">Allowed types: .exe, .msi, .msp (Windows), .pkg, .dmg (macOS), .deb, .rpm, .run, .sh (Linux). Up to 1 GiB.</div>
+            </div>
+            <button id="file-upload-btn" class="primary">Upload file</button>
+            <div id="file-upload-result" style="margin-top:14px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span>Approved files</span><button id="files-refresh" class="small">Refresh</button></div>
+          <div class="card-body" id="files-wrap"><span class="spinner"></span> Loading&hellip;</div>
+        </div>
+      </div>
+
+      <!-- ENROLLMENT -->
+      <div class="sadc-panel" id="panel-enrollment">
+        <div class="card">
+          <div class="card-header">Create an enrollment key</div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="form-row"><label>Label</label><input type="text" id="enroll-label" placeholder="e.g. Q3 laptop rollout"></div>
+              <div class="form-row"><label>Expires in (days, blank = never)</label><input type="number" id="enroll-expires" min="1"></div>
+              <div class="form-row"><label>Max uses (blank = unlimited)</label><input type="number" id="enroll-maxuses" min="1"></div>
+            </div>
+            <button id="enroll-create" class="primary">Create key</button>
+            <div id="enroll-result" style="margin-top:14px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span>Existing keys</span><button id="enroll-refresh" class="small">Refresh</button></div>
+          <div class="card-body" id="enroll-keys-wrap"><span class="spinner"></span> Loading&hellip;</div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="sadc-panel" id="panel-settings">
+        <div class="card">
+          <div class="card-header">Server connection</div>
+          <div class="card-body" id="settings-status"><span class="spinner"></span> Checking&hellip;</div>
+        </div>
+        <div class="card">
+          <div class="card-header">About</div>
+          <div class="card-body">
+            <p>This page talks to the local <code class="inline">inventory-server</code> through a small
+              root-run helper (<code class="inline">inventory_cli.py</code>), the same way the rest of this
+              page's actions work &mdash; no server credentials are ever typed into or stored by the browser.</p>
+            <p class="muted">Server config: <code class="inline">/etc/inventory-server/server.env</code></p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="modal-host"></div>
+
+  <script src="../base1/cockpit.js"></script>
+  <script src="inventory.js"></script>
+</body>
+</html>

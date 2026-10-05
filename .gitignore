@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# PyInstaller build artifacts (agent-windows-exe-kit/build.ps1 output)
+build/
+dist/
+*.spec.bak
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Runtime data (created by install-server.sh, not part of the repo)
+*.db
+*.db-journal
+
+# Editors
+.vscode/
+.idea/
+*.swp

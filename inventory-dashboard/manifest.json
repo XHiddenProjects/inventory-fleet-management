@@ -1,0 +1,20 @@
+{
+    "name": "inventory-dashboard",
+    "requires": {
+        "cockpit": "250"
+    },
+    "menu": {
+        "index": {
+            "label": "Inventory",
+            "order": 70,
+            "keywords": [
+                { "matches": ["inventory", "fleet", "agents", "asset management", "monitoring", "endpoints"] }
+            ]
+        }
+    },
+    "tools": {
+        "index": {
+            "label": "Inventory"
+        }
+    }
+}
