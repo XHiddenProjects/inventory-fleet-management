@@ -15,11 +15,13 @@
 set -euo pipefail
 
 URL=""
+SERVER_IP=""
 DEST="/tmp/inventory-fleet-management"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --url) URL="$2"; shift 2 ;;
+    --server-ip) SERVER_IP="$2"; shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -44,4 +46,8 @@ tar -xzf "$DEST.tar.gz" -C "$DEST" --strip-components=1
 
 echo "Running install-server.sh ..."
 chmod +x "$DEST/scripts/install-server.sh"
-"$DEST/scripts/install-server.sh" "$@"
+if [ -n "$SERVER_IP" ]; then
+  "$DEST/scripts/install-server.sh" --server-ip "$SERVER_IP"
+else
+  "$DEST/scripts/install-server.sh"
+fi

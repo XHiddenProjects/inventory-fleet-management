@@ -41,6 +41,12 @@ cd inventory-fleet-management
 sudo ./scripts/install-server.sh
 ```
 
+If the server has multiple network interfaces, specify the address that agents should use:
+
+```bash
+sudo ./scripts/install-server.sh --server-ip 10.200.0.10
+```
+
 This installs to `/opt/inventory-server`, sets up a `inventory-server`
 systemd service listening on `0.0.0.0:8787`, generates an admin token in
 `/etc/inventory-server/server.env`, and — if Cockpit is present — deploys
@@ -55,7 +61,7 @@ http.server` on a workstation), then on the target box:
 
 ```bash
 curl -fsSL http://your-internal-host/bootstrap.sh \
-  | sudo bash -s -- --url http://your-internal-host/inventory-fleet-management.tar.gz
+  | sudo bash -s -- --url http://your-internal-host/inventory-fleet-management.tar.gz --server-ip 10.200.0.10
 ```
 
 This is the same "curl | bash" pattern you'd see for a GitHub-hosted

@@ -284,12 +284,24 @@ def main():
     ap.add_argument("--interval", type=int, default=60, help="Seconds between check-ins")
     ap.add_argument("--once", action="store_true", help="Run a single collect+checkin cycle and exit")
     ap.add_argument("--state-file", default=str(_state_dir() / "state.json"))
+    ap.add_argument("--log-file", help="Append agent output to this file")
     ap.add_argument("--print-only", action="store_true", help="Collect and print inventory locally; don't contact a server")
     args = ap.parse_args()
 
     if args.print_only:
         print(json.dumps(collect_all(), indent=2, default=str))
         return
+
+    if args.log_file:
+        log_path = Path(args.log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        if log_path.exists() and log_path.stat().st_size >= 1024 * 1024:
+            previous_log = log_path.with_suffix(log_path.suffix + ".1")
+            previous_log.unlink(missing_ok=True)
+            log_path.replace(previous_log)
+        log_stream = log_path.open("a", encoding="utf-8", buffering=1)
+        sys.stdout = log_stream
+        sys.stderr = log_stream
 
     state_path = Path(args.state_file)
     state = load_state(state_path)
@@ -304,6 +316,7 @@ def main():
 
     pending_results = state.pop("_pending_results", [])
     while True:
+        cycle_failed = False
         try:
             new_pending = run_once(state, pending_results)
             pending_results = new_pending
@@ -312,12 +325,17 @@ def main():
                   + (f", ran {len(pending_results)} job(s)" if pending_results else ""))
         except HTTPError as e:
             print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] checkin failed: HTTP {e.code} {e.reason}", file=sys.stderr)
+            cycle_failed = True
         except URLError as e:
             print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] checkin failed: {e.reason}", file=sys.stderr)
+            cycle_failed = True
         except Exception:
             print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] checkin failed:\n{traceback.format_exc(limit=5)}", file=sys.stderr)
+            cycle_failed = True
 
         if args.once:
+            if cycle_failed:
+                sys.exit(1)
             break
         time.sleep(args.interval)
 

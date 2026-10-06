@@ -160,7 +160,7 @@ function donutChartSvg(segments, opts) {
     return ring;
   }).join("");
   const svg = `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${rings}` +
-    `<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="700" style="fill:var(--text)">${total}</text></svg>`;
+    `<text class="chart-total" x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="700">${total}</text></svg>`;
   const legend = segments.filter((s) => s.value > 0).map((seg) => `
     <div class="chart-legend-item"><span class="chart-legend-swatch" style="background:${seg.color}"></span>${escapeHtml(seg.label)}: ${seg.value}</div>
   `).join("");
@@ -177,7 +177,7 @@ function barChartSvg(segments, opts) {
     const w = Math.max(2, (seg.value / total) * width);
     const y = i * (barHeight + gap);
     return `<rect x="0" y="${y}" width="${w.toFixed(1)}" height="${barHeight}" rx="4" fill="${seg.color}"><title>${escapeHtml(seg.label)}: ${seg.value}</title></rect>` +
-      `<text x="${width + 10}" y="${y + barHeight / 2}" dominant-baseline="middle" font-size="12.5" style="fill:var(--text)">${escapeHtml(seg.label)} (${seg.value})</text>`;
+      `<text class="chart-label" x="${width + 10}" y="${y + barHeight / 2}" dominant-baseline="middle" font-size="12.5">${escapeHtml(seg.label)} (${seg.value})</text>`;
   }).join("");
   return `<svg viewBox="0 0 ${width + 150} ${height}" width="100%" height="${height}" style="max-width:380px">${bars}</svg>`;
 }
@@ -294,7 +294,7 @@ async function loadDashboard() {
     renderMetrics(summary);
     renderOsChart(summary.os_breakdown);
     renderOnlineChart(summary.online, summary.offline);
-    renderRecentHosts();
+    renderRecentHosts(true);
   } catch (e) {
     document.getElementById("dash-metrics").innerHTML = `<div class="alert error">${escapeHtml(errText(e))}</div>`;
   }
@@ -326,10 +326,10 @@ function renderOnlineChart(online, offline) {
   ]);
 }
 
-async function renderRecentHosts() {
+async function renderRecentHosts(force) {
   const wrap = document.getElementById("dash-recent-hosts");
   try {
-    const agents = (await getAgents()).slice().sort((a, b) => (b.last_seen || 0) - (a.last_seen || 0)).slice(0, 8);
+    const agents = (await getAgents(force)).slice().sort((a, b) => (b.last_seen || 0) - (a.last_seen || 0)).slice(0, 8);
     if (agents.length === 0) { wrap.innerHTML = `<div class="empty-state">No agents enrolled yet. Head to the Enrollment tab to create a key.</div>`; return; }
     wrap.innerHTML = `<table class="data-table"><thead><tr><th></th><th>Hostname</th><th>OS</th><th>Last seen</th></tr></thead><tbody>
       ${agents.map((a) => `
@@ -447,6 +447,18 @@ async function loadHostDetail(agentId) {
     document.getElementById("host-detail-title").textContent = "Error";
     document.getElementById("sub-system").innerHTML = `<div class="alert error">${escapeHtml(errText(e))}</div>`;
   }
+}
+
+async function refreshHostStatus(agentId) {
+  try {
+    const agents = await getAgents(true);
+    const agent = agents.find((item) => item.id === agentId);
+    if (!agent || STATE.currentHostId !== agentId) return;
+    document.getElementById("host-detail-title").innerHTML =
+      `<span class="status-dot ${agent.online ? "online" : "offline"}"></span>${escapeHtml(agent.hostname)}`;
+    document.getElementById("host-detail-subtitle").textContent =
+      `${OS_LABELS[agent.os] || agent.os} \u00b7 ${agent.os_version || ""} \u00b7 last seen ${fmtAgo(agent.last_seen)} (${fmtDate(agent.last_seen)})`;
+  } catch {}
 }
 
 function showHostsPanel() {
@@ -1194,6 +1206,14 @@ async function openFileInstallModal(f) {
 
 /* ---------------- ENROLLMENT ---------------- */
 
+function getAgentServerUrl(configuredUrl) {
+  const url = new URL(configuredUrl);
+  if (["localhost", "127.0.0.1", "[::1]", "::1"].includes(url.hostname)) {
+    url.hostname = window.location.hostname;
+  }
+  return url.origin;
+}
+
 async function loadEnrollment() {
   document.getElementById("enroll-create").onclick = async (event) => {
     const button = event.currentTarget;
@@ -1219,7 +1239,7 @@ async function loadEnrollment() {
 
 function renderEnrollResult(key) {
   cli(["config-status"]).then((status) => {
-    const server = status.server_url;
+    const server = getAgentServerUrl(status.server_url);
     const box = document.getElementById("enroll-result");
     box.innerHTML = `
       <div class="alert success" style="white-space:normal">
@@ -1228,13 +1248,13 @@ function renderEnrollResult(key) {
           <button class="small link" id="enroll-copy">Copy</button></div>
       </div>
       <div class="card"><div class="card-header">Install on Linux</div><div class="card-body">
-        <pre class="ldif">curl -fsSL ${escapeHtml(server)}/agent/install.sh | sudo bash -s -- --server ${escapeHtml(server)} --enrollment-key ${escapeHtml(key)}</pre>
+        <pre class="ldif">printf 'Enrollment key: '; read -r -s ENROLLMENT_KEY &amp;&amp; printf '\\n' &amp;&amp; curl -fsSL ${escapeHtml(server)}/agent/install.sh | sudo bash -s -- --server ${escapeHtml(server)} --enrollment-key "$ENROLLMENT_KEY" &amp;&amp; unset ENROLLMENT_KEY</pre>
       </div></div>
       <div class="card"><div class="card-header">Install on macOS</div><div class="card-body">
-        <pre class="ldif">curl -fsSL ${escapeHtml(server)}/agent/install-macos.sh | sudo bash -s -- --server ${escapeHtml(server)} --enrollment-key ${escapeHtml(key)}</pre>
+        <pre class="ldif">printf 'Enrollment key: '; read -r -s ENROLLMENT_KEY &amp;&amp; printf '\\n' &amp;&amp; curl -fsSL ${escapeHtml(server)}/agent/install-macos.sh | sudo bash -s -- --server ${escapeHtml(server)} --enrollment-key "$ENROLLMENT_KEY" &amp;&amp; unset ENROLLMENT_KEY</pre>
       </div></div>
       <div class="card"><div class="card-header">Install on Windows (PowerShell, as Administrator)</div><div class="card-body">
-        <pre class="ldif">iwr -useb ${escapeHtml(server)}/agent/install.ps1 | iex; Install-InventoryAgent -Server '${escapeHtml(server)}' -EnrollmentKey '${escapeHtml(key)}'</pre>
+        <pre class="ldif">iwr -useb ${escapeHtml(server)}/agent/install.ps1 | iex; Install-InventoryAgent -Server '${escapeHtml(server)}' -EnrollmentKey (Read-Host 'Enrollment key')</pre>
       </div></div>
       <p class="form-hint">Every install script requires Python 3 already present on the target machine. See the README for offline/pre-staged install options.</p>
     `;
@@ -1283,21 +1303,21 @@ async function loadEnrollmentKeys() {
 function showConnectInstructions(keyRow) {
   const placeholder = `<YOUR-SAVED-KEY-FOR-${(keyRow.label || "this key").toUpperCase().replace(/[^A-Z0-9]+/g, "-")}>`;
   cli(["config-status"]).then((status) => {
-    const server = status.server_url;
+    const server = getAgentServerUrl(status.server_url);
     openModal(`Connect an agent &mdash; ${escapeHtml(keyRow.label || keyRow.key_hash.slice(0, 8))}`, `
       <div class="alert info" style="white-space:normal">
         For security, the raw key value is never stored after creation, so it can't be shown again here.
-        Substitute the key you saved when this was created for <code class="inline">${escapeHtml(placeholder)}</code> below.
+        Linux and macOS hide the key while you type; PowerShell displays it in the terminal.
         If you no longer have it, delete this key and create a new one instead.
       </div>
       <div class="card"><div class="card-header">Install on Linux</div><div class="card-body">
-        <pre class="ldif">curl -fsSL ${escapeHtml(server)}/agent/install.sh | sudo bash -s -- --server ${escapeHtml(server)} --enrollment-key ${escapeHtml(placeholder)}</pre>
+        <pre class="ldif">printf 'Enrollment key: '; read -r -s ENROLLMENT_KEY &amp;&amp; printf '\\n' &amp;&amp; curl -fsSL ${escapeHtml(server)}/agent/install.sh | sudo bash -s -- --server ${escapeHtml(server)} --enrollment-key "$ENROLLMENT_KEY" &amp;&amp; unset ENROLLMENT_KEY</pre>
       </div></div>
       <div class="card"><div class="card-header">Install on macOS</div><div class="card-body">
-        <pre class="ldif">curl -fsSL ${escapeHtml(server)}/agent/install-macos.sh | sudo bash -s -- --server ${escapeHtml(server)} --enrollment-key ${escapeHtml(placeholder)}</pre>
+        <pre class="ldif">printf 'Enrollment key: '; read -r -s ENROLLMENT_KEY &amp;&amp; printf '\\n' &amp;&amp; curl -fsSL ${escapeHtml(server)}/agent/install-macos.sh | sudo bash -s -- --server ${escapeHtml(server)} --enrollment-key "$ENROLLMENT_KEY" &amp;&amp; unset ENROLLMENT_KEY</pre>
       </div></div>
       <div class="card"><div class="card-header">Install on Windows (PowerShell, as Administrator)</div><div class="card-body">
-        <pre class="ldif">iwr -useb ${escapeHtml(server)}/agent/install.ps1 | iex; Install-InventoryAgent -Server '${escapeHtml(server)}' -EnrollmentKey '${escapeHtml(placeholder)}'</pre>
+        <pre class="ldif">iwr -useb ${escapeHtml(server)}/agent/install.ps1 | iex; Install-InventoryAgent -Server '${escapeHtml(server)}' -EnrollmentKey (Read-Host 'Enrollment key')</pre>
       </div></div>
     `, { wide: true, buttons: [{ label: "Close", className: "primary", onClick: (close) => close() }] });
   });
@@ -1350,4 +1370,14 @@ document.addEventListener("DOMContentLoaded", () => {
   initButtons();
   checkServerStatus();
   loadPanel("dashboard");
+  setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    const activePanel = document.querySelector(".sadc-tab.active")?.dataset.panel;
+    if (activePanel === "dashboard") loadPanel(activePanel, true);
+    else if (activePanel === "hosts") {
+      if (document.getElementById("panel-host-detail").classList.contains("active")) {
+        refreshHostStatus(STATE.currentHostId);
+      } else loadPanel(activePanel, true);
+    }
+  }, 15000);
 });

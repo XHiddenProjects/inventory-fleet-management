@@ -371,6 +371,11 @@ pre.ldif {
   font-size: 12px; overflow: auto; max-height: 400px; border: 1px solid var(--border);
   color: var(--text); font-family: "RedHatMono", ui-monospace, Consolas, monospace;
 }
+:root[data-theme="dark"] .sadc-app pre.ldif,
+:root[data-theme="dark"] .sadc-app pre.ldif *,
+:root[data-theme="dark"] .sadc-app code.inline {
+  color: var(--text);
+}
 
 .spinner {
   display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
@@ -393,7 +398,8 @@ pre.ldif {
 
 code.inline {
   background: var(--bg-subtle); padding: 1px 6px; border-radius: 4px; font-size: 12px;
-  border: 1px solid var(--border); font-family: "RedHatMono", ui-monospace, Consolas, monospace;
+  border: 1px solid var(--border); color: var(--text);
+  font-family: "RedHatMono", ui-monospace, Consolas, monospace;
 }
 
 /* ---------------- dashboard metrics & charts ---------------- */
@@ -412,9 +418,11 @@ code.inline {
 .chart-row { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 18px; }
 .chart-card { flex: 1 1 280px; min-width: 260px; }
 .chart-legend { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 12.5px; }
-.chart-legend-item { display: flex; align-items: center; gap: 8px; }
+.chart-legend-item { display: flex; align-items: center; gap: 8px; color: var(--text); }
 .chart-legend-swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
-.chart-empty { text-align: center; color: var(--text-faint); padding: 30px 0; font-size: 13px; }
+.chart-label, .chart-total { fill: var(--text); }
+.chart-label { font-weight: 500; }
+.chart-empty { text-align: center; color: var(--text-muted); padding: 30px 0; font-size: 13px; }
 
 @media (max-width: 560px) {
   .block-fields { grid-template-columns: minmax(0, 1fr); }
